@@ -15,7 +15,7 @@ class Config {
 
 export async function main(ns: NS): Promise<void> {
     const flags = ns.flags([
-        ['target', 'harakiri-sushi'],
+        ['target', 'iron-gym'],
         ['force_update', false],
         ['depth', 10],
     ]);

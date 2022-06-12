@@ -1,4 +1,4 @@
-function checksumInner(input: string): number {
+export function checksum(input: string): number {
     let hash = 0, i, chr
     if (input.length === 0) return hash
     for (i = 0; i < input.length; i++) {
@@ -9,8 +9,8 @@ function checksumInner(input: string): number {
     return hash
 }
 
-export function checksum(input: string): string {
-    return checksumInner(input).toString(16);
+export function checksumText(input: string): string {
+    return checksum(input).toString(16);
 }
 
 
@@ -20,12 +20,12 @@ function checksumName(scriptName: string): string {
 
 export function shouldUpdate(ns: NS, scriptName: string): boolean {
     const oldChecksum = ns.read(checksumName(scriptName));
-    const newChecksum = checksum(ns.read(scriptName));
+    const newChecksum = checksumText(ns.read(scriptName));
     const conclusion = oldChecksum !== newChecksum;
     ns.tprint(`${scriptName} ${conclusion ? 'should be updated' : 'is up to date'}`);
     return conclusion;
 }
 
 export async function dumpCheckSum(ns: NS, scriptName: string): Promise<void> {
-    await ns.write(checksumName(scriptName), checksum(ns.read(scriptName)), 'w');
+    await ns.write(checksumName(scriptName), checksumText(ns.read(scriptName)), 'w');
 }

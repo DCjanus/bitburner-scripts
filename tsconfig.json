@@ -17,6 +17,7 @@
     "rootDir": "src/",
     "outDir": "dist/",
     "baseUrl": "src/",
+    "newLine": "lf",
     "paths": {
       "/*": [
         "*"

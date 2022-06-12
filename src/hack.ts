@@ -71,17 +71,32 @@ export async function main(ns: NS): Promise<void> {
         return;
     }
 
+    let idx = Math.floor(Math.random() * config.total_threads);
     while (true) {
         const oldWeakenThreshold = config.weaken_threshold;
         const oldGrowThreshold = config.grow_threshold;
         const oldHackThreshold = config.hack_threshold;
 
-        if (ns.getServerSecurityLevel(config.host) >= config.weaken_threshold) {
-            await ns.weaken(config.host);
-        } else if (ns.getServerMoneyAvailable(config.host) <= config.grow_threshold) {
-            await ns.grow(config.host);
-        } else if (ns.getServerMoneyAvailable(config.host) >= config.hack_threshold) {
-            await ns.hack(config.host);
+        idx = (idx + 1) % 4;
+        ns.print(`idx: ${idx}`);
+        switch (idx) {
+            case 0:
+                if (ns.getServerSecurityLevel(config.host) >= config.weaken_threshold) {
+                    await ns.weaken(config.host);
+                }
+                break;
+            case 1:
+                if (ns.getServerMoneyAvailable(config.host) <= config.grow_threshold) {
+                    await ns.grow(config.host);
+                }
+                break;
+            case 2:
+                if (ns.getServerMoneyAvailable(config.host) >= config.hack_threshold) {
+                    await ns.hack(config.host);
+                }
+                break;
+            case 3:
+                await ns.asleep(100);
         }
 
         if (ns.getServerSecurityLevel(config.host) <= config.min_security && randomChose(1 / config.total_threads)) {
