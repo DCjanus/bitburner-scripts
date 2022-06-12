@@ -1,3 +1,5 @@
+import {NS} from "@ns";
+
 export function checksum(input: string): number {
     let hash = 0, i, chr
     if (input.length === 0) return hash
@@ -28,4 +30,18 @@ export function shouldUpdate(ns: NS, scriptName: string): boolean {
 
 export async function dumpCheckSum(ns: NS, scriptName: string): Promise<void> {
     await ns.write(checksumName(scriptName), checksumText(ns.read(scriptName)), 'w');
+}
+
+export function scanServers(ns: NS, servers: Set<string>, host: string, depth: number): void {
+    if (depth <= 0) {
+        return
+    }
+    const items = ns.scan(host);
+    for (const item of items) {
+        if (servers.has(item)) {
+            continue;
+        }
+        servers.add(item);
+        scanServers(ns, servers, item, depth - 1);
+    }
 }

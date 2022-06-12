@@ -4,30 +4,18 @@ class Config {
     constructor(
         public ns: NS,
         public host: string,
-        public grow_threshold: number,
-        public weaken_threshold: number,
-        public hack_threshold: number,
         public total_threads: number,
         public max_money: number,
         public min_security: number,
+        public grow_chance: number = 10,
+        public weaken_chance: number = 10,
+        public hack_chance: number = 10,
     ) {
     }
 
     isValid(): boolean {
         if (this.host.length === 0) {
             this.ns.tprint('ERROR: host is empty')
-            return false
-        }
-        if (this.grow_threshold <= 0) {
-            this.ns.tprint('ERROR: grow_threshold must be greater than 0')
-            return false
-        }
-        if (this.weaken_threshold <= 0) {
-            this.ns.tprint('ERROR: weaken_threshold must be greater than 0')
-            return false
-        }
-        if (this.hack_threshold <= 0) {
-            this.ns.tprint('ERROR: hack_threshold must be greater than 0')
             return false
         }
         if (this.total_threads <= 0) {
@@ -50,19 +38,14 @@ class Config {
 export async function main(ns: NS): Promise<void> {
     const flags = ns.flags([
         ['host', ''],
-        ['grow_threshold', 0],
-        ['weaken_threshold', 0],
-        ['hack_threshold', 0],
         ['total_threads', 0],
         ['max_money', 0],
         ['min_security', 0],
+        ['clean_chance', false]
     ]);
     const config = new Config(
         ns,
         flags.host,
-        flags.grow_threshold,
-        flags.weaken_threshold,
-        flags.hack_threshold,
         flags.total_threads,
         flags.max_money,
         flags.min_security,
@@ -71,80 +54,148 @@ export async function main(ns: NS): Promise<void> {
         return;
     }
 
-    let idx = Math.floor(Math.random() * config.total_threads);
+    if (!flags.clean_chance) {
+        loadChance(config);
+    }
+
     while (true) {
-        const oldWeakenThreshold = config.weaken_threshold;
-        const oldGrowThreshold = config.grow_threshold;
-        const oldHackThreshold = config.hack_threshold;
+        adjustChance(config);
+        await saveChance(config);
 
-        idx = (idx + 1) % 4;
-        ns.print(`idx: ${idx}`);
-        switch (idx) {
-            case 0:
-                if (ns.getServerSecurityLevel(config.host) >= config.weaken_threshold) {
-                    await ns.weaken(config.host);
-                }
-                break;
-            case 1:
-                if (ns.getServerMoneyAvailable(config.host) <= config.grow_threshold) {
-                    await ns.grow(config.host);
-                }
-                break;
-            case 2:
-                if (ns.getServerMoneyAvailable(config.host) >= config.hack_threshold) {
-                    await ns.hack(config.host);
-                }
-                break;
-            case 3:
-                await ns.asleep(100);
-        }
+        const totalChance = config.grow_chance + config.weaken_chance + config.hack_chance;
+        let chance = Math.random() * totalChance;
 
-        if (ns.getServerSecurityLevel(config.host) <= config.min_security && randomChose(1 / config.total_threads)) {
-            config.weaken_threshold += securityLevelStep
+        chance -= config.weaken_chance;
+        if (chance <= 0) {
+            await ns.weaken(config.host);
+            continue;
         }
-        if (ns.getServerMoneyAvailable(config.host) <= 0 && randomChose(1 / config.total_threads)) {
-            config.hack_threshold += moneyStep
+        chance -= config.grow_chance;
+        if (chance <= 0) {
+            await ns.grow(config.host);
+            continue;
         }
-        if (ns.getServerMoneyAvailable(config.host) >= config.max_money && randomChose(1 / config.total_threads)) {
-            config.grow_threshold -= moneyStep
-        }
-
-        if (randomChose(1 / (config.total_threads * 30))) {
-            config.weaken_threshold -= securityLevelStep;
-            config.grow_threshold += moneyStep;
-            config.hack_threshold -= moneyStep;
-            await config.ns.asleep(100); // in case of server is busy
-        }
-
-        config.weaken_threshold = migrateToRange(config.weaken_threshold, config.min_security, Infinity);
-        config.grow_threshold = migrateToRange(config.grow_threshold, 0, config.max_money);
-        config.hack_threshold = migrateToRange(config.hack_threshold, 0, config.max_money);
-
-        if (oldWeakenThreshold !== config.weaken_threshold) {
-            config.ns.print(`weaken_threshold: ${oldWeakenThreshold} -> ${config.weaken_threshold}`);
-        }
-        if (oldGrowThreshold !== config.grow_threshold) {
-            config.ns.print(`grow_threshold: ${oldGrowThreshold} -> ${config.grow_threshold}`);
-        }
-        if (oldHackThreshold !== config.hack_threshold) {
-            config.ns.print(`hack_threshold: ${oldHackThreshold} -> ${config.hack_threshold}`);
+        chance -= config.hack_chance;
+        if (chance <= 0) {
+            await ns.hack(config.host);
         }
     }
 }
 
-const securityLevelStep = 0.05;
-const moneyStep = 1000;
+function adjustChance(c: Config) {
+    const oldWeakenChance = c.weaken_chance;
+    const oldGrowChance = c.grow_chance;
+    const oldHackChance = c.hack_chance;
 
-function migrateToRange(n: number, min: number, max: number): number {
-    if (n <= min) {
-        return min;
-    } else if (n >= max) {
-        return max;
-    } else {
-        return n;
+    const money = c.ns.getServerMoneyAvailable(c.host);
+    const security = c.ns.getServerSecurityLevel(c.host);
+    if (money <= 0) {
+        c.hack_chance -= 1;
+    }
+    if (money <= c.max_money * 0.5) {
+        c.hack_chance -= 1;
+    }
+    if (money >= c.max_money * 0.8) {
+        c.hack_chance += 1;
+    }
+
+    if (money <= c.max_money * 0.3) {
+        c.grow_chance += 1;
+    }
+    if (money <= c.max_money * 0.1) {
+        c.grow_chance += 1;
+    }
+    if (money >= c.max_money) {
+        c.grow_chance -= 1;
+    }
+    if (money >= c.max_money * 0.8) {
+        c.grow_chance -= 1;
+    }
+
+
+    if (security <= c.min_security) {
+        c.weaken_chance -= 1;
+    }
+    if (security <= c.min_security * 2) {
+        c.weaken_chance -= 1;
+    }
+    if (security >= c.min_security * 4) {
+        c.weaken_chance += 1;
+    }
+    if (security >= c.min_security * 8) {
+        c.weaken_chance += 1;
+    }
+
+    const r = Math.random();
+    if (r < 0.05) {
+        c.weaken_chance -= 1;
+        c.grow_chance -= 1;
+        c.hack_chance -= 1;
+    } else if (r < 0.1) {
+        c.weaken_chance += 1;
+        c.grow_chance += 1;
+        c.hack_chance += 1;
+    }
+
+    while (c.hack_chance <= 0 || c.grow_chance <= 0 || c.weaken_chance <= 0) {
+        c.hack_chance += 1;
+        c.grow_chance += 1;
+        c.weaken_chance += 1;
+    }
+    while (c.hack_chance <= 10 && c.grow_chance <= 10 && c.weaken_chance <= 10) {
+        c.hack_chance *= 2;
+        c.grow_chance *= 2;
+        c.weaken_chance *= 2;
+    }
+    while (c.hack_chance > 100 && c.grow_chance > 100 && c.weaken_chance > 100) {
+        c.hack_chance *= 0.5;
+        c.grow_chance *= 0.5;
+        c.weaken_chance *= 0.5;
+    }
+    c.hack_chance = Math.min(Math.floor(c.hack_chance), 10000);
+    c.grow_chance = Math.min(Math.floor(c.grow_chance), 10000);
+    c.weaken_chance = Math.min(Math.floor(c.weaken_chance), 10000);
+
+    if (oldWeakenChance !== c.weaken_chance) {
+        c.ns.print(`adjusted chance: weaken ${oldWeakenChance} -> ${c.weaken_chance}`);
+    }
+    if (oldGrowChance !== c.grow_chance) {
+        c.ns.print(`adjusted chance: grow ${oldGrowChance} -> ${c.grow_chance}`);
+    }
+    if (oldHackChance !== c.hack_chance) {
+        c.ns.print(`adjusted chance: hack ${oldHackChance} -> ${c.hack_chance}`);
     }
 }
 
-function randomChose(n: number): boolean {
-    return Math.random() < n;
+function chanceFileName(host: string): string {
+    return `${host}.chance.txt`
+}
+
+function loadChance(c: Config) {
+    const text = c.ns.read(chanceFileName(c.host));
+    if (text.length === 0) {
+        return;
+    }
+    const data = JSON.parse(text);
+    if (typeof data !== 'object') {
+        return;
+    }
+    if (data.grow_chance !== undefined) {
+        c.grow_chance = data.grow_chance;
+    }
+    if (data.weaken_chance !== undefined) {
+        c.weaken_chance = data.weaken_chance;
+    }
+    if (data.hack_chance !== undefined) {
+        c.hack_chance = data.hack_chance;
+    }
+}
+
+async function saveChance(c: Config) {
+    const object = {
+        grow_chance: c.grow_chance,
+        weaken_chance: c.weaken_chance,
+        hack_chance: c.hack_chance,
+    }
+    await c.ns.write(chanceFileName(c.host), JSON.stringify(object), 'w');
 }
