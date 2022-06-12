@@ -1,3 +1,7 @@
 node_modules/
 dist/
 NetscriptDefinitions.d.ts
+NetscriptDefinitions.d.ts.tmp
+bitburner-sync.json
+.idea/
+.vscode/

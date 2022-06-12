@@ -6,7 +6,8 @@
   "scripts": {
     "watch": "npx tsc -w",
     "lint": "eslint . --ext .ts",
-    "defs": "node ./updateDefs.js"
+    "defs": "wget -O ./NetscriptDefinitions.d.ts.tmp https://raw.githubusercontent.com/danielyxie/bitburner/dev/src/ScriptEditor/NetscriptDefinitions.d.ts && mv ./NetscriptDefinitions.d.ts.tmp ./NetscriptDefinitions.d.ts",
+    "sync": "bitburner-sync --watch"
   },
   "repository": {
     "type": "git",
@@ -22,6 +23,7 @@
     "@types/node": "^16.4.3",
     "@typescript-eslint/eslint-plugin": "^4.28.4",
     "@typescript-eslint/parser": "^4.28.4",
+    "bitburner-sync": "^1.5.2",
     "eslint": "^7.31.0",
     "ts-node": "^9.1.1",
     "typescript": "^4.3.5"
