@@ -88,7 +88,6 @@ async function singleHost(cfg: Config, host: string, totalThreads: number) {
 
     const maxMoney = cfg.ns.getServerMaxMoney(cfg.target);
     const minSecurity = cfg.ns.getServerMinSecurityLevel(cfg.target);
-    const hackChance = cfg.ns.hackAnalyzeChance(cfg.target);
     const growThreshold = maxMoney * 0.75;
     const HackThreshold = maxMoney * 0.5;
     const weakenThreshold = minSecurity * 2;
@@ -108,7 +107,6 @@ async function singleHost(cfg: Config, host: string, totalThreads: number) {
         '--total_threads', totalThreads,
         '--max_money', maxMoney,
         '--min_security', minSecurity,
-        '--hack_chance', hackChance,
     );
     cfg.ns.tprint(`Started ${simpleHack} on ${host} with ${threads} threads`);
 }

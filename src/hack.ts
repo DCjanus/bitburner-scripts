@@ -10,7 +10,6 @@ class Config {
         public total_threads: number,
         public max_money: number,
         public min_security: number,
-        public hack_chance: number,
     ) {
     }
 
@@ -43,10 +42,6 @@ class Config {
             this.ns.tprint('ERROR: min_security must be greater than 0')
             return false
         }
-        if (this.hack_chance < 0 || this.hack_chance > 1) {
-            this.ns.tprint('ERROR: hack_chance must be between 0 and 1')
-            return false
-        }
 
         return true;
     }
@@ -61,7 +56,6 @@ export async function main(ns: NS): Promise<void> {
         ['total_threads', 0],
         ['max_money', 0],
         ['min_security', 0],
-        ['hack_chance', -1],
     ]);
     const config = new Config(
         ns,
@@ -72,7 +66,6 @@ export async function main(ns: NS): Promise<void> {
         flags.total_threads,
         flags.max_money,
         flags.min_security,
-        flags.hack_chance,
     );
     if (!config.isValid()) {
         return;
@@ -84,23 +77,24 @@ export async function main(ns: NS): Promise<void> {
         const oldHackThreshold = config.hack_threshold;
 
         if (ns.getServerSecurityLevel(config.host) >= config.weaken_threshold) {
-            const weakenRet = await ns.weaken(config.host);
-            if (weakenRet === 0) {
-                config.weaken_threshold += securityLevelStep;
-            }
+            await ns.weaken(config.host);
         } else if (ns.getServerMoneyAvailable(config.host) <= config.grow_threshold) {
-            const growRet = await ns.grow(config.host);
-            if (growRet === 0) {
-                config.grow_threshold -= moneyStep;
-            }
+            await ns.grow(config.host);
         } else if (ns.getServerMoneyAvailable(config.host) >= config.hack_threshold) {
-            const hackRet = await ns.hack(config.host);
-            if (hackRet === 0 && randomChose(config.hack_chance)) { // hack may fail, so we have to multiply by the hack chance
-                config.hack_threshold += moneyStep;
-            }
+            await ns.hack(config.host);
         }
 
-        if (randomChose(1 / (config.total_threads * 10))) {
+        if (ns.getServerSecurityLevel(config.host) <= config.min_security && randomChose(1 / config.total_threads)) {
+            config.weaken_threshold += securityLevelStep
+        }
+        if (ns.getServerMoneyAvailable(config.host) <= 0 && randomChose(1 / config.total_threads)) {
+            config.hack_threshold += moneyStep
+        }
+        if (ns.getServerMoneyAvailable(config.host) >= config.max_money && randomChose(1 / config.total_threads)) {
+            config.grow_threshold -= moneyStep
+        }
+
+        if (randomChose(1 / (config.total_threads * 30))) {
             config.weaken_threshold -= securityLevelStep;
             config.grow_threshold += moneyStep;
             config.hack_threshold -= moneyStep;
