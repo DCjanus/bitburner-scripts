@@ -2,6 +2,7 @@ import {NS} from "@ns";
 import {dumpCheckSum, scanServers, shouldUpdate} from "/utils";
 
 const simpleHack = 'hack.js';
+const moni = 'moni.js';
 
 class Config {
     constructor(
@@ -16,42 +17,60 @@ class Config {
 
 export async function main(ns: NS): Promise<void> {
     const flags = ns.flags([
-        ['target', 'n00dles'],
+        ['targets', ['n00dles', 'harakiri-sushi', 'max-hardware']],
         ['force', false],
         ['depth', 10],
         ['clean_chance', false],
     ]);
 
-    const cfg = new Config(ns, flags.target, flags.force || shouldUpdate(ns, simpleHack), flags.depth, flags.clean_chance);
+    const cfg = new Config(ns, flags.targets[0], flags.force || shouldUpdate(ns, simpleHack), flags.depth, flags.clean_chance);
     if (cfg.should_update) {
+        ns.scriptKill(moni, 'home');
+        await ns.asleep(1000);
+        ns.exec(moni, 'home');
         await dumpCheckSum(ns, simpleHack);
     }
 
     const allServers = new Set<string>(['home']);
     scanServers(cfg.ns, allServers, 'home', cfg.depth);
-    const hackServers = new Set<string>();
+    const hackServers: string [] = [];
     for (const server of allServers) {
-        if (server === 'home') {
-            continue;
-        }
         if (!nukeHost(ns, server)) {
             continue;
         }
-        hackServers.add(server);
+        hackServers.push(server);
     }
+    hackServers.sort();
 
     let total_threads = 0;
     hackServers.forEach(host => total_threads += calcThreads(ns, host, simpleHack));
+
+    for (const host of flags.targets) {
+        if (ns.getServerRequiredHackingLevel(host) * 4 <= ns.getPlayer().hacking) {
+            cfg.target = host;
+        }
+    }
+    if (cfg.target === '') {
+        ns.tprint(`ERROR: No target server found`);
+        return
+    }
 
     for (const host of hackServers) {
         await singleHost(cfg, host, total_threads);
     }
 }
 
-
 function calcThreads(ns: NS, server: string, script: string): number {
-    const total = ns.getServerMaxRam(server);
+    let total = ns.getServerMaxRam(server);
+    if (server === 'home') {
+        total -= 30;
+    }
+
     const required = ns.getScriptRam(script);
+    if (required <= 0) {
+        return 1;
+    }
+
     return Math.floor(total / required);
 }
 
@@ -72,11 +91,10 @@ async function singleHost(cfg: Config, host: string, totalThreads: number) {
 
     const maxMoney = cfg.ns.getServerMaxMoney(cfg.target);
     const minSecurity = cfg.ns.getServerMinSecurityLevel(cfg.target);
-    const rawRemain = cfg.ns.getServerMaxRam(host) - cfg.ns.getServerUsedRam(host);
-    const rawRequired = cfg.ns.getScriptRam(simpleHack, host);
-    const threads = Math.floor(rawRemain / rawRequired);
+
+    const threads = calcThreads(cfg.ns, host, simpleHack);
     if (threads <= 0) {
-        cfg.ns.tprint(`No enough RAM to run ${simpleHack} on ${host}, ${rawRemain}/${rawRequired}`);
+        cfg.ns.tprint(`No enough RAM to run ${simpleHack} on ${host}, ${threads}`);
         return;
     }
 
@@ -91,6 +109,10 @@ async function singleHost(cfg: Config, host: string, totalThreads: number) {
 }
 
 function nukeHost(ns: NS, host: string): boolean {
+    if (host === 'home') {
+        return true;
+    }
+
     openPorts(ns, host);
 
     const server = ns.getServer(host);

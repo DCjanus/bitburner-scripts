@@ -15,7 +15,6 @@ export function checksumText(input: string): string {
     return checksum(input).toString(16);
 }
 
-
 function checksumName(scriptName: string): string {
     return `${scriptName}.csk.txt`;
 }
@@ -44,4 +43,32 @@ export function scanServers(ns: NS, servers: Set<string>, host: string, depth: n
         servers.add(item);
         scanServers(ns, servers, item, depth - 1);
     }
+}
+
+export function numFmt(money: number): string {
+    const units = ['', 'K', 'M', 'B'];
+    let unit = 0;
+    while (money >= 1000 && unit < units.length - 1) {
+        money /= 1000;
+        unit++;
+    }
+    return `${money.toFixed(3)}${units[unit]}`;
+}
+
+export function GBRamFmt(ram: number): string {
+    const units = ['GB', 'TB', 'PB', 'EB'];
+    let unit = 0;
+    while (ram >= 1024 && unit < units.length - 1) {
+        ram /= 1024;
+        unit++;
+    }
+    return `${ram.toFixed(3)}${units[unit]}`;
+}
+
+export function zeroPad(n: number, size: number): string {
+    let s = n.toString();
+    while (s.length < size) {
+        s = '0' + s;
+    }
+    return s;
 }

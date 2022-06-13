@@ -66,17 +66,17 @@ export async function main(ns: NS): Promise<void> {
         let chance = Math.random() * totalChance;
 
         chance -= config.weaken_chance;
-        if (chance <= 0) {
+        if (chance <= 0 && config.ns.getServerSecurityLevel(config.host) > config.min_security) {
             await ns.weaken(config.host);
             continue;
         }
         chance -= config.grow_chance;
-        if (chance <= 0) {
+        if (chance <= 0 && config.ns.getServerMoneyAvailable(config.host) < config.max_money) {
             await ns.grow(config.host);
             continue;
         }
         chance -= config.hack_chance;
-        if (chance <= 0) {
+        if (chance <= 0 && config.ns.getServerMoneyAvailable(config.host) > 0) {
             await ns.hack(config.host);
         }
     }
@@ -91,40 +91,43 @@ function adjustChance(c: Config) {
     const security = c.ns.getServerSecurityLevel(c.host);
     if (money <= 0) {
         c.hack_chance -= 1;
-    }
-    if (money <= c.max_money * 0.5) {
-        c.hack_chance -= 1;
-    }
-    if (money >= c.max_money * 0.8) {
-        c.hack_chance += 1;
-    }
-
-    if (money <= c.max_money * 0.3) {
         c.grow_chance += 1;
     }
-    if (money <= c.max_money * 0.1) {
+    if (money <= c.max_money * 0.2) {
+        c.hack_chance -= 1;
         c.grow_chance += 1;
     }
     if (money >= c.max_money) {
+        c.hack_chance += 1;
         c.grow_chance -= 1;
     }
     if (money >= c.max_money * 0.8) {
+        c.hack_chance += 1;
         c.grow_chance -= 1;
     }
-
 
     if (security <= c.min_security) {
         c.weaken_chance -= 1;
     }
-    if (security <= c.min_security * 2) {
+    if (security <= c.min_security * 1.2) {
         c.weaken_chance -= 1;
+    }
+    if (security >= c.min_security * 2) {
+        c.weaken_chance += 1;
+    }
+    if (security >= c.min_security * 3) {
+        c.weaken_chance += 1;
     }
     if (security >= c.min_security * 4) {
         c.weaken_chance += 1;
     }
-    if (security >= c.min_security * 8) {
+    if (security >= c.min_security * 5) {
         c.weaken_chance += 1;
     }
+    if (security >= c.min_security * 6) {
+        c.weaken_chance += 1;
+    }
+
 
     const r = Math.random();
     if (r < 0.05) {

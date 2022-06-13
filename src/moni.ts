@@ -1,21 +1,23 @@
 import {NS} from "@ns";
-import {scanServers} from "/utils";
+import {numFmt, scanServers} from "/utils";
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
 
     const servers = new Set<string>();
     scanServers(ns, servers, 'home', 10);
-
     const [beginMoneyMade, beginExpMade] = incoming(ns, servers);
     const begin = Date.now();
     while (true) {
-        await ns.asleep(1000);
+        await ns.asleep(30000);
+
+        const servers = new Set<string>();
+        scanServers(ns, servers, 'home', 10);
         const [moneyMade, expMade] = incoming(ns, servers);
         const costMs = Date.now() - begin;
         const moneyPerSecond = (moneyMade - beginMoneyMade) / costMs * 1000;
         const expPerSecond = (expMade - beginExpMade) / costMs * 1000;
-        ns.print(`${moneyPerSecond.toFixed(2)} money/s, ${expPerSecond.toFixed(2)} exp/s`);
+        ns.print(`${numFmt(moneyPerSecond)} money/s, ${numFmt(expPerSecond)} exp/s`);
     }
 }
 
